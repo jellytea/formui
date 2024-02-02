@@ -1,2 +1,2 @@
-# formui
+# FormUI
 Forms for Fyne.
