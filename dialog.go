@@ -1,4 +1,4 @@
-// Copyright 2024 The Contaiman Author
+// Copyright 2024 JetERA Creative
 // This Source Code Form is subject to the terms of the Mozilla Public License, v. 2.0
 // that can be found in the LICENSE file and https://mozilla.org/MPL/2.0/.
 
@@ -28,6 +28,27 @@ func (w Window) NewDialogWithConfirm(title, confirm, dismiss string, callback fu
 			callback()
 		}
 	}, w.Window)
+}
+
+func (w Window) NewDialogWithWait(title string, object fyne.CanvasObject) (dialog.Dialog, func()) {
+	var (
+		d           dialog.Dialog
+		closeButton *widget.Button
+	)
+
+	closeButton = widget.NewButton("Close", func() {
+		d.Hide()
+	})
+	closeButton.Disable()
+
+	d = dialog.NewCustomWithoutButtons(title, container.NewVBox(
+		object,
+		closeButton,
+	), w.Window)
+
+	return d, func() {
+		closeButton.Enable()
+	}
 }
 
 func (w Window) NewFormDialog(title string, items ...*widget.FormItem) dialog.Dialog {
@@ -62,6 +83,39 @@ func NewListSelect(onSelected func(i int, v string), items []string) *widget.Lis
 	})
 	list.OnSelected = func(id widget.ListItemID) { onSelected(id, items[id]) }
 	return list
+}
+
+func (w Window) ShowListEdit(elements []any, toString func(e any) string, add func() any) (*fyne.Container, func() []any) {
+	list := container.NewHScroll(NewListView(nil))
+
+	var i = 0
+
+	updateList := func() {
+		var labels []string
+		for _, e := range elements {
+			labels = append(labels, toString(e))
+		}
+		list.Content = NewListSelect(func(idx int, v string) {
+			i = idx
+		}, labels)
+		list.Refresh()
+	}
+
+	return container.NewBorder(nil, container.NewHBox(
+			widget.NewButton("Add", func() {
+				e := add()
+				if e != nil {
+					elements = append(elements, e)
+				}
+				updateList()
+			}),
+			widget.NewButton("Remove", func() {
+				elements = append(elements[i:], elements[:i])
+				updateList()
+			}),
+		), nil, nil, list), func() []any {
+			return elements
+		}
 }
 
 func (w Window) NewFileOpenDialog(onSelected func(path string)) dialog.Dialog {

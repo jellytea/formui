@@ -12,7 +12,7 @@ import (
 func BuildFormFromStruct(v any) *widget.Form {
 	var formItems []*widget.FormItem
 
-	t := reflect.TypeOf(reflect.ValueOf(v))
+	t := reflect.TypeOf(reflect.Indirect(reflect.ValueOf(v)))
 	for _, f := range reflect.VisibleFields(t) {
 		key := f.Tag.Get("formui")
 		if key == "" {
