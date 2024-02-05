@@ -36,19 +36,12 @@ func (w Window) NewDialogWithWait(title string, object fyne.CanvasObject) (dialo
 		closeButton *widget.Button
 	)
 
-	closeButton = widget.NewButton("Close", func() {
-		d.Hide()
-	})
-	closeButton.Disable()
+	closeButton = widget.NewButton("Close", func() { d.Hide() })
+	closeButton.Hide()
 
-	d = dialog.NewCustomWithoutButtons(title, container.NewVBox(
-		object,
-		closeButton,
-	), w.Window)
+	d = dialog.NewCustomWithoutButtons(title, container.NewBorder(nil, closeButton, nil, nil, object), w.Window)
 
-	return d, func() {
-		closeButton.Enable()
-	}
+	return d, func() { closeButton.Show() }
 }
 
 func (w Window) NewFormDialog(title string, items ...*widget.FormItem) dialog.Dialog {
@@ -85,37 +78,60 @@ func NewListSelect(onSelected func(i int, v string), items []string) *widget.Lis
 	return list
 }
 
-func (w Window) ShowListEdit(elements []any, toString func(e any) string, add func() any) (*fyne.Container, func() []any) {
+type ListEdit struct {
+	Elements []any
+	Widget   fyne.CanvasObject
+	Update   func()
+}
+
+func (l *ListEdit) Append(e any) {
+	l.Elements = append(l.Elements, e)
+	l.Update()
+}
+
+func NewListEdit(elements []any, toString func(e any) string, labels []string, add ...func()) *ListEdit {
+	listEdit := &ListEdit{
+		Elements: elements,
+		Widget:   nil,
+		Update:   nil,
+	}
+
 	list := container.NewHScroll(NewListView(nil))
 
-	var i = 0
+	selected := -1
 
-	updateList := func() {
-		var labels []string
-		for _, e := range elements {
-			labels = append(labels, toString(e))
+	var buttons []fyne.CanvasObject
+
+	for i, label := range labels {
+		f := add[i]
+		buttons = append(buttons, widget.NewButton(label, func() {
+			f()
+			listEdit.Update()
+		}))
+	}
+
+	buttons = append(buttons, widget.NewButton("Remove", func() {
+		if selected < 0 {
+			return
 		}
-		list.Content = NewListSelect(func(idx int, v string) {
-			i = idx
-		}, labels)
+		listEdit.Elements = append(listEdit.Elements[:selected], listEdit.Elements[selected+1:]...)
+		listEdit.Update()
+		selected = -1
+	}))
+
+	listEdit.Widget = container.NewBorder(nil, container.NewHBox(buttons...), nil, nil, list)
+	listEdit.Update = func() {
+		var items []string
+		for _, e := range listEdit.Elements {
+			items = append(items, toString(e))
+		}
+		list.Content = NewListSelect(func(i int, v string) { selected = i }, items)
 		list.Refresh()
 	}
 
-	return container.NewBorder(nil, container.NewHBox(
-			widget.NewButton("Add", func() {
-				e := add()
-				if e != nil {
-					elements = append(elements, e)
-				}
-				updateList()
-			}),
-			widget.NewButton("Remove", func() {
-				elements = append(elements[i:], elements[:i])
-				updateList()
-			}),
-		), nil, nil, list), func() []any {
-			return elements
-		}
+	listEdit.Update()
+
+	return listEdit
 }
 
 func (w Window) NewFileOpenDialog(onSelected func(path string)) dialog.Dialog {
